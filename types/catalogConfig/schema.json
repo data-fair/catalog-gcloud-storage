@@ -1,122 +1,55 @@
 {
-  "$id": "https://github.com/data-fair/catalog-mock/catalog-config",
+  "$id": "https://github.com/data-fair/catalog-gcloud-storage/catalog-config",
   "x-exports": [
     "types",
     "validate",
     "schema"
   ],
-  "title": "MockConfig",
+  "title": "GCloudStorageConfig",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "url",
-    "delay"
+    "bucketName",
+    "serviceAccount"
   ],
   "properties": {
-    "url": {
+    "bucketName": {
       "type": "string",
-      "title": "URL",
-      "description": "The url of the catalog",
-      "x-i18n-description": {
-        "fr": "L'URL de l'API du catalogue"
-      },
-      "pattern": "^https?://.*[^/]$",
-      "errorMessage": "The URL must start with http:// or https:// and must not end with `/`.",
-      "x-i18n-errorMessage": {
-        "fr": "L'URL doit commencer par http:// ou https:// et ne pas se terminer par `/`."
-      },
-      "examples": ["https://example.com"]
-    },
-    "secretField": {
-      "type": "string",
-      "title": "Secret Field",
+      "title": "Bucket Name",
       "x-i18n-title": {
-        "fr": "Champ chiffré"
+        "fr": "Nom du bucket"
       },
-      "description": "A secret field that is ciphered but for testing purposes, shown in the description of imported datasets.",
+      "description": "The name of the Google Cloud Storage bucket.",
       "x-i18n-description": {
-        "fr": "Un champ secret qui est chiffré mais qui, à des fins de test, est affiché dans la description des jeux de données importés."
+        "fr": "Le nom du bucket Google Cloud Storage."
+      },
+      "layout": {
+        "props": {
+          "autocomplete": "username"
+        }
+      },
+      "default": "",
+      "examples": [
+        "my-google-cloud-storage-bucket"
+      ]
+    },
+    "serviceAccount": {
+      "type": "string",
+      "title": "Service Account",
+      "x-i18n-title": {
+        "fr": "Compte de service"
+      },
+      "description": "The service account key for accessing the Google Cloud Storage bucket. The expected format is a JSON:\n```json\n{\n  \"type\": \"service_account\",\n  \"project_id\": \"PROJECT_ID\",\n  \"private_key_id\": \"KEY_ID\",\n  \"private_key\": \"-----BEGIN PRIVATE KEY-----PRIVATE_KEY-----END PRIVATE KEY-----\",\n  \"client_email\": \"SERVICE_ACCOUNT_EMAIL\",\n  \"client_id\": \"CLIENT_ID\",\n  \"auth_uri\": \"https://accounts.google.com/o/oauth2/auth\",\n  \"token_uri\": \"https://oauth2.googleapis.com/token\",\n  \"auth_provider_x509_cert_url\": \"https://www.googleapis.com/oauth2/v1/certs\",\n  \"client_x509_cert_url\": \"https://www.googleapis.com/robot/v1/metadata/x509/SERVICE_ACCOUNT_EMAIL\"\n}\n```\nDetails on creating a service account: https://cloud.google.com/iam/docs/service-accounts-create?hl=fr. The required IAM role is: `Storage Object Viewer` to read objects.",
+      "x-i18n-description": {
+        "fr": "Le compte de service pour accéder au bucket Google Cloud Storage. La forme attendue est un JSON :\n```\n{\n  \"type\": \"service_account\",\n  \"project_id\": \"PROJECT_ID\",\n  \"private_key_id\": \"KEY_ID\",\n  \"private_key\": \"-----BEGIN PRIVATE KEY-----PRIVATE_KEY-----END PRIVATE KEY-----\",\n  \"client_email\": \"SERVICE_ACCOUNT_EMAIL\",\n  \"client_id\": \"CLIENT_ID\",\n  \"auth_uri\": \"https://accounts.google.com/o/oauth2/auth\",\n  \"token_uri\": \"https://oauth2.googleapis.com/token\",\n  \"auth_provider_x509_cert_url\": \"https://www.googleapis.com/oauth2/v1/certs\",\n  \"client_x509_cert_url\": \"https://www.googleapis.com/robot/v1/metadata/x509/SERVICE_ACCOUNT_EMAIL\"\n}\n```\nDétails sur la création d'un compte de service : https://cloud.google.com/iam/docs/service-accounts-create?hl=fr. Le rôle IAM requis est : `Storage Object Viewer` pour lire les objets"
       },
       "layout": {
         "props": {
           "type": "password",
           "autocomplete": "new-password"
         }
-      }
-    },
-    "thumbnailUrl": {
-      "type": "string",
-      "title": "Thumbnail URL",
-      "x-i18n-title": {
-        "fr": "URL de la vignette"
       },
-      "description": "The URL of the thumbnail image for the catalog. If not provided, no thumbnail will be displayed.",
-      "x-i18n-description": {
-        "fr": "L'URL de l'image miniature du catalogue. Si non fourni, aucune vignette ne sera affichée."
-      },
-      "pattern": "^https?://.*[^/]$",
-      "errorMessage": "The Thumbnail URL must start with http:// or https:// and must not end with `/`.",
-      "x-i18n-errorMessage": {
-        "fr": "L'URL de la vignette doit commencer par http:// ou https:// et ne pas se terminer par `/`."
-      },
-      "examples": ["https://cdn.jsdelivr.net/gh/data-fair/data-fair@master/ui/public/assets/logo.svg"],
-      "layout": {
-        "props": {
-          "clearable": true
-        }
-      }
-    },
-    "delay": {
-      "type": "number",
-      "title": "Response Delay",
-      "x-i18n-title": {
-        "fr": "Délai de réponse"
-      },
-      "description": "Adds a response delay (in ms) to requests to simulate server response time. Set to 0 to disable.",
-      "x-i18n-description": {
-        "fr": "Ajoute un temps de réponse (en ms) aux requêtes pour simuler un délai de réponse du serveur. La valeur 0 désactive le délai."
-      },
-      "default": 500,
-      "minimum": 0,
-      "maximum": 60000,
-      "layout": {
-        "cols": 4,
-        "props": {
-          "step": 100
-        }
-      }
-    },
-    "searchCapability": {
-      "type": "boolean",
-      "title": "Search Capability",
-      "x-i18n-title": {
-        "fr": "Capacité de recherche"
-      },
-      "description": "Indicates whether the catalog dynamically supports the search feature.",
-      "x-i18n-description": {
-        "fr": "Indique si le catalogue prend en charge dynamiquement la fonctionnalité de recherche."
-      },
-      "default": true,
-      "layout": {
-        "comp": "switch",
-        "cols": 4
-      }
-    },
-    "paginationCapability": {
-      "type": "boolean",
-      "title": "Pagination Capability",
-      "x-i18n-title": {
-        "fr": "Capacité de pagination"
-      },
-      "description": "Indicates whether the catalog dynamically supports pagination.",
-      "x-i18n-description": {
-        "fr": "Indique si le catalogue prend en charge dynamiquement la pagination."
-      },
-      "default": true,
-      "layout": {
-        "comp": "switch",
-        "cols": 4
-      }
+      "default": ""
     }
   }
 }

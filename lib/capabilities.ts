@@ -7,13 +7,8 @@ import type { Capability } from '@data-fair/types-catalogs'
  */
 export const capabilities = [
   'import',
-  'search',
-  'pagination',
-  'importConfig',
-  'publication',
-  'thumbnail',
-  'thumbnailUrl'
+  'search'
 ] satisfies Capability[]
 
-export type MockCapabilities = typeof capabilities
+export type GCloudStorageCapabilities = typeof capabilities
 export default capabilities

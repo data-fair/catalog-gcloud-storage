@@ -1,44 +1,48 @@
 import type { PrepareContext } from '@data-fair/types-catalogs'
-import type { MockCapabilities } from './capabilities.ts'
-import type { MockConfig } from '#types'
+import type { GCloudStorageCapabilities } from './capabilities.ts'
+import type { GCloudStorageConfig } from '#types'
 
-export default async ({ catalogConfig, capabilities, secrets }: PrepareContext<MockConfig, MockCapabilities>) => {
-  // Manage secrets
-  const secretField = catalogConfig.secretField
-  // If the config contains a secretField, and it is not already hidden
-  if (secretField && secretField !== '********') {
-    // Hide the secret in the catalogConfig, and copy it to secrets
-    secrets.secretField = secretField
-    catalogConfig.secretField = '********'
-
-  // If the secretField is in the secrets, and empty in catalogConfig,
-  // then it means the user has cleared the secret in the config
-  } else if (secrets?.secretField && secretField === '') {
-    delete secrets.secretField
+/**
+ * Prepares the Google Cloud Storage catalog configuration by handling service account secrets,
+ * validating credentials, and ensuring the specified bucket is accessible.
+ *
+ * - Moves the service account from `catalogConfig` to `secrets` if provided.
+ * - Masks the service account in `catalogConfig` after moving it to `secrets`.
+ * - Removes the service account from `secrets` if an empty string is provided in `catalogConfig`.
+ * - Validates the service account credentials and bucket name by attempting to access the bucket.
+ *
+ * @param context - The preparation context containing the catalog configuration, capabilities, and secrets.
+ * @returns An object containing the updated `catalogConfig`, `capabilities`, and `secrets`.
+ * @throws If the service account or bucket name is missing, or if the credentials are invalid.
+ */
+export default async ({ catalogConfig, capabilities, secrets }: PrepareContext<GCloudStorageConfig, GCloudStorageCapabilities>) => {
+  const serviceAccount = catalogConfig.serviceAccount
+  if (serviceAccount && serviceAccount !== '*************************') {
+    secrets.serviceAccount = serviceAccount
+    catalogConfig.serviceAccount = '*************************'
+  } else if (secrets?.serviceAccount && serviceAccount === '') {
+    delete secrets.serviceAccount
   } else {
     // The secret is already set, do nothing
   }
 
-  // Manage capabilities
-  if (catalogConfig.searchCapability && !capabilities.includes('search')) capabilities.push('search')
-  else capabilities = capabilities.filter(c => c !== 'search')
-
-  if (catalogConfig.paginationCapability && !capabilities.includes('pagination')) capabilities.push('pagination')
-  else capabilities = capabilities.filter(c => c !== 'pagination')
-
-  let thumbnailUrl: string
-  if (catalogConfig.thumbnailUrl) {
-    if (!capabilities.includes('thumbnailUrl')) capabilities.push('thumbnailUrl')
-    thumbnailUrl = catalogConfig.thumbnailUrl
+  // test if the service account is valid
+  if (secrets?.serviceAccount && catalogConfig.bucketName) {
+    try {
+      const { Storage } = await import('@google-cloud/storage')
+      const storage = new Storage({ credentials: JSON.parse(secrets.serviceAccount) })
+      await storage.bucket(catalogConfig.bucketName).getFiles({ maxResults: 1 })
+    } catch (error) {
+      console.error('Error accessing Google Cloud Storage')
+      throw new Error('Invalid bucketName or service account credentials for Google Cloud Storage')
+    }
   } else {
-    capabilities = capabilities.filter(c => c !== 'thumbnailUrl')
-    thumbnailUrl = ''
+    throw new Error('Service account and bucketName is required for Google Cloud Storage')
   }
 
   return {
     catalogConfig,
     capabilities,
-    secrets,
-    thumbnailUrl
+    secrets
   }
 }

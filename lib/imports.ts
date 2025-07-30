@@ -1,156 +1,136 @@
-import type { CatalogPlugin, ListResourcesContext, Folder, GetResourceContext } from '@data-fair/types-catalogs'
-import type { MockConfig } from '#types'
-import type { MockCapabilities } from './capabilities.ts'
+import type { CatalogPlugin, ListResourcesContext, Folder, GetResourceContext, Resource } from '@data-fair/types-catalogs'
+import type { GCloudStorageConfig } from '#types'
+import type { GCloudStorageCapabilities } from './capabilities.ts'
+import { type GetFilesOptions, Storage } from '@google-cloud/storage'
+import path from 'path'
+import fs from 'fs'
 
-export const listResources = async ({ catalogConfig, secrets, params }: ListResourcesContext<MockConfig, MockCapabilities>): ReturnType<CatalogPlugin['listResources']> => {
-  await new Promise(resolve => setTimeout(resolve, catalogConfig.delay)) // Simulate a delay for the mock plugin
+type ResourceList = Awaited<ReturnType<CatalogPlugin['listResources']>>['results']
 
-  const tree = (await import('./resources/resources-mock.ts')).default
-
-  /**
-   * Extracts folders and resources for a given parent/folder ID
-   * @param resources - The resources object containing folders and resources
-   * @param targetId - The parent ID for folders or folder ID for resources (undefined for root level)
-   * @returns Array of folders and resources matching the criteria
-   */
-  const getFoldersAndResources = (targetId: string | undefined) => {
-    const folders = Object.keys(tree.folders).reduce((acc: Folder[], key) => {
-      if (tree.folders[key].parentId !== targetId) return acc // Skip folders that are not under the targetId
-      acc.push({
-        id: key,
-        title: tree.folders[key].title,
-        type: 'folder'
-      })
-      return acc
-    }, [])
-
-    // In the mock plugin, we assume that resources are always under a folder
-    if (!targetId) return folders
-
-    const resources = tree.folders[targetId]?.resourceIds.reduce((acc: Awaited<ReturnType<CatalogPlugin['listResources']>>['results'], resourceId) => {
-      const resource = tree.resources[resourceId]
-      if (!resource) return acc // Skip if resource not found
-
-      acc.push({
-        id: resourceId,
-        title: resource.title,
-        description: resource.description + '\n\n' + secrets.secretField, // Include the secret in the description for demonstration
-        format: resource.format,
-        mimeType: resource.mimeType,
-        origin: resource.origin,
-        size: resource.size,
-        type: 'resource'
-      })
-      return acc
-    }, [])
-
-    return [...folders, ...resources]
+/**
+ * Lists resources (files and folders) from a Google Cloud Storage bucket based on the provided context.
+ *
+ * @param context - The context for listing resources, including catalog configuration, secrets, and parameters.
+ * @returns A promise resolving to an object containing the count, results (files and folders), and the current folder path.
+ * @throws Will throw an error if the service account secret is missing or if there is an error accessing Google Cloud Storage.
+ */
+export const listResources = async ({ catalogConfig, secrets, params }: ListResourcesContext<GCloudStorageConfig, GCloudStorageCapabilities>): ReturnType<CatalogPlugin['listResources']> => {
+  if (!secrets?.serviceAccount) {
+    throw new Error('Service Account is required to access Google Cloud Storage')
   }
+  try {
+    const storage = new Storage({ credentials: JSON.parse(secrets.serviceAccount) })
 
-  const path: Folder[] = []
-  let res = getFoldersAndResources(params.currentFolderId)
-  // Get total count before search and pagination
-  const totalCount = res.length
-
-  // Apply search filter if provided
-  if (params.q && catalogConfig.searchCapability) {
-    const searchTerm = params.q.toLowerCase()
-    res = res.filter(item =>
-      item.title.toLowerCase().includes(searchTerm) ||
-      ('description' in item && item.description?.toLowerCase().includes(searchTerm))
-    )
-  }
-
-  if (catalogConfig.paginationCapability) {
-    // Apply pagination
-    const size = params.size || 20
-    const page = params.page || 0
-    const skip = (page - 1) * size
-    res = res.slice(skip, skip + size)
-  }
-
-  // Get path to current folder if specified
-  if (params.currentFolderId) {
-    // Get current folder
-    const currentFolder = tree.folders[params.currentFolderId]
-    if (!currentFolder) throw new Error(`Folder with ID ${params.currentFolderId} not found`)
-
-    // Get path to current folder (parents folders)
-    let parentId = currentFolder.parentId
-    while (parentId) {
-      const parentFolder = tree.folders[parentId]
-      if (!parentFolder) throw new Error(`Parent folder with ID ${parentId} not found`)
-
-      // Add the parent to the start of the list to avoid reversing the path later
-      path.unshift({
-        id: parentId,
-        title: parentFolder.title,
-        type: 'folder'
-      })
-      parentId = parentFolder.parentId
+    if (!params.currentFolderId) {
+      params.currentFolderId = ''
+    }
+    let q: string | undefined
+    if (params.q) {
+      q = `${params.currentFolderId}*${params.q}**`
     }
 
-    // Add the current folder to the path
-    path.push({
-      id: params.currentFolderId,
-      title: currentFolder.title,
-      type: 'folder'
-    })
-  }
+    const options: GetFilesOptions = {
+      autoPaginate: true,
+      prefix: params.currentFolderId,
+      matchGlob: q,
+      delimiter: '/',
+      includeTrailingDelimiter: false,
+    }
 
-  return {
-    count: totalCount,
-    results: res,
-    path
+    const [files, , response] = await storage.bucket(catalogConfig.bucketName).getFiles(options)
+    const prefixes = (response as any).prefixes || []
+
+    // Include files in the results, excluding the current folder ID
+    const resFiles = files.filter(file => file.name !== params.currentFolderId).map(file => {
+      return {
+        id: file.name,
+        title: path.basename(file.name),
+        type: 'resource',
+        size: file.metadata.size as number,
+        format: path.extname(file.name).substring(1),
+        mimeType: file.metadata.contentType
+      }
+    })
+
+    // Include prefixes as folders in the results
+    const foldersFromPrefixes = prefixes.filter((prefix: string) => prefix !== '/').map((prefix: string) => {
+      const dosName = prefix.substring(0, prefix.length - 1)
+      return {
+        id: prefix,
+        title: dosName.substring(dosName.lastIndexOf('/') + 1),
+        type: 'folder',
+      }
+    })
+
+    const foldersPath = params.currentFolderId.split('/').filter((fold: string) => fold !== '')
+    const foldPath: Folder[] = foldersPath.map((fold: string, idx) => ({
+      id: foldersPath.slice(0, idx + 1).join('/') + '/',
+      title: fold,
+      type: 'folder'
+    }))
+
+    return {
+      count: resFiles.length + foldersFromPrefixes.length,
+      results: [...resFiles, ...foldersFromPrefixes] as ResourceList,
+      path: foldPath
+    }
+  } catch (error) {
+    console.error('Error listing resources:', error)
+    throw new Error('Erreur dans le listage des fichiers / Authentification GCS possiblement incorrecte')
   }
 }
 
-export const getResource = async ({ catalogConfig, secrets, resourceId, importConfig, tmpDir, log }: GetResourceContext<MockConfig>): ReturnType<CatalogPlugin['getResource']> => {
-  await log.info(`Downloading resource ${resourceId}`, { catalogConfig, secrets, importConfig })
-
-  // Simulate a delay for the mock plugin
-  await log.task('delay', 'Simulate delay for mock plugin (Response Delay * 10) ', catalogConfig.delay * 10)
-  for (let i = 0; i < catalogConfig.delay * 10; i += catalogConfig.delay) {
-    await new Promise(resolve => setTimeout(resolve, catalogConfig.delay))
-    await log.progress('delay', i + catalogConfig.delay)
+/**
+ * Downloads a specific resource (file) from a Google Cloud Storage bucket and saves it to a temporary directory.
+ *
+ * @param context - The context for getting a resource, including catalog configuration, secrets, resource ID, temporary directory, and logger.
+ * @returns A promise resolving to a Resource object containing metadata and the local file path.
+ * @throws Will throw an error if the service account secret is missing or if there is an error during file download or authentication.
+ */
+export const getResource = async ({ catalogConfig, secrets, resourceId, tmpDir, log }: GetResourceContext<GCloudStorageConfig>): ReturnType<CatalogPlugin['getResource']> => {
+  if (!secrets?.serviceAccount) {
+    throw new Error('Service Account is required to access Google Cloud Storage')
   }
+  try {
+    const storage = new Storage({ credentials: JSON.parse(secrets.serviceAccount) })
 
-  // Validate the importConfig
-  await log.step('Validate import configuraiton')
-  const { returnValid } = await import('#type/importConfig/index.ts')
-  returnValid(importConfig)
-  await log.info('Import configuration is valid', { importConfig })
+    const fileName = resourceId.substring(resourceId.lastIndexOf('/') + 1)
+    await log.step('Téléchargement du fichier : ' + fileName)
 
-  // First check if the resource exists
-  const resources = (await import('./resources/resources-mock.ts')).default
-  const resource = resources.resources[resourceId]
-  if (!resource) { throw new Error(`Resource with ID ${resourceId} not found`) }
+    const filePath = path.join(tmpDir, fileName)
 
-  // Import necessary modules dynamically
-  const fs = await import('node:fs/promises')
-  const path = await import('node:path')
+    // Downloads the file with log progression
+    const [metadata] = await storage.bucket(catalogConfig.bucketName).file(resourceId).getMetadata()
 
-  await log.step('Download resource file')
-  await log.warning('This task can take a while, please be patient')
-  // Simulate downloading by copying a dummy file with limited rows
-  const sourceFile = path.join(import.meta.dirname, 'resources', 'dataset-mock.csv')
-  const destFile = path.join(tmpDir, 'dataset-mock.csv')
-  const data = await fs.readFile(sourceFile, 'utf8')
-
-  // Limit the number of rows to importConfig.nbRows (Header excluded)
-  const lines = data.split('\n').slice(0, importConfig.nbRows + 1).join('\n')
-  await fs.writeFile(destFile, lines, 'utf8')
-  await log.info(`${importConfig.nbRows} rows downloaded`)
-
-  await log.step('End of resource download')
-  await log.info(`Resource ${resourceId} downloaded successfully`)
-  await log.warning('This is a mock resource, the file is not real and does not contain real data.')
-  await log.error('Example of an error log for demonstration purposes.')
-
-  return {
-    id: resourceId,
-    ...resource,
-    description: resource.description + '\n\n' + secrets.secretField, // Include the secret in the description for demonstration
-    filePath: destFile
+    const sizeNum = typeof metadata.size === 'string' ? globalThis.Number(metadata.size) : (typeof metadata.size === 'number' ? metadata.size : NaN)
+    await log.task(`download ${resourceId}`, 'Progression', isNaN(sizeNum) ? NaN : sizeNum)
+    let progress = 0
+    return new Promise<Resource>((resolve, reject) => {
+      storage
+        .bucket(catalogConfig.bucketName)
+        .file(resourceId)
+        .createReadStream()
+        .on('data', async (chunk) => {
+          progress += chunk.length
+          await log.progress(`download ${resourceId}`, progress)
+        })
+        .on('error', async (error) => {
+          await log.error('Error during download: ' + error.message)
+          reject(error)
+        })
+        .pipe(fs.createWriteStream(filePath))
+        .on('finish', () => {
+          resolve({
+            id: resourceId,
+            title: path.basename(fileName, path.extname(fileName)),
+            filePath,
+            format: path.extname(fileName).substring(1),
+          })
+        })
+    })
+  } catch (error) {
+    console.error('Error getting resource:', error)
+    log.error(`Error during file download: ${error instanceof Error ? error.message : error}`)
+    throw new Error('Erreur dans le téléchargement du fichier / Authentification GCS possiblement incorrecte')
   }
 }
