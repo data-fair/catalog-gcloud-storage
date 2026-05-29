@@ -1,11 +1,11 @@
-import type { CatalogPlugin, ListResourcesContext, Folder, GetResourceContext, Resource } from '@data-fair/types-catalogs'
+import type { CatalogPlugin, ListContext, Folder, GetResourceContext, Resource } from '@data-fair/types-catalogs'
 import type { GCloudStorageConfig } from '#types'
 import type { GCloudStorageCapabilities } from './capabilities.ts'
 import { type GetFilesOptions, Storage } from '@google-cloud/storage'
 import path from 'path'
 import fs from 'fs'
 
-type ResourceList = Awaited<ReturnType<CatalogPlugin['listResources']>>['results']
+type ResourceList = Awaited<ReturnType<CatalogPlugin['list']>>['results']
 
 /**
  * Lists resources (files and folders) from a Google Cloud Storage bucket based on the provided context.
@@ -14,7 +14,7 @@ type ResourceList = Awaited<ReturnType<CatalogPlugin['listResources']>>['results
  * @returns A promise resolving to an object containing the count, results (files and folders), and the current folder path.
  * @throws Will throw an error if the service account secret is missing or if there is an error accessing Google Cloud Storage.
  */
-export const listResources = async ({ catalogConfig, secrets, params }: ListResourcesContext<GCloudStorageConfig, GCloudStorageCapabilities>): ReturnType<CatalogPlugin['listResources']> => {
+export const list = async ({ catalogConfig, secrets, params }: ListContext<GCloudStorageConfig, GCloudStorageCapabilities>): ReturnType<CatalogPlugin['list']> => {
   if (!secrets?.serviceAccount) {
     throw new Error('Service Account is required to access Google Cloud Storage')
   }

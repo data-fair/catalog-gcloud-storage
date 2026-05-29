@@ -7,11 +7,11 @@ import { Storage } from '@google-cloud/storage'
 vi.mock('@google-cloud/storage')
 
 const catalogPlugin: CatalogPlugin = plugin as CatalogPlugin
-const listResources = catalogPlugin.listResources
+const list = catalogPlugin.list
 const secrets = { serviceAccount: JSON.stringify({ smt: 'fake-service-account-json' }) }
 const catalogConfig = { bucketName: 'test-bucket' }
 
-describe('test the listResources function for GCS', () => {
+describe('test the list function for GCS', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -33,7 +33,7 @@ describe('test the listResources function for GCS', () => {
     }))
 
     // @ts-ignore
-    const result = await listResources({ secrets, params: {}, catalogConfig })
+    const result = await list({ secrets, params: {}, catalogConfig })
     assert.deepEqual(result.results, [
       { id: 'file1.csv', title: 'file1.csv', type: 'resource', size: 1000, format: 'csv', mimeType: 'text/csv' },
       { id: 'file2.txt', title: 'file2.txt', type: 'resource', size: 2000, format: 'txt', mimeType: 'plain/text' },
@@ -63,7 +63,7 @@ describe('test the listResources function for GCS', () => {
     }))
 
     // @ts-ignore
-    const result = await listResources({ secrets, params, catalogConfig })
+    const result = await list({ secrets, params, catalogConfig })
     assert.deepEqual(result.results, [
       {
         id: 'folder1/file1.csv',
@@ -97,7 +97,7 @@ describe('test the listResources function for GCS', () => {
     })
 
     await expect(async () => {
-      await listResources({ secrets: { serviceAccount: JSON.stringify({ smt: 'invalid' }) }, params: {}, catalogConfig: {} })
+      await list({ secrets: { serviceAccount: JSON.stringify({ smt: 'invalid' }) }, params: {}, catalogConfig: {} })
     }).rejects.toThrow(/Erreur dans le listage des fichiers/i)
   })
 })

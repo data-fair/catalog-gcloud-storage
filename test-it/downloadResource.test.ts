@@ -36,7 +36,8 @@ describe('test the getResource function for GCS', () => {
       tmpDir,
       catalogConfig: { bucketName: 'test-bucket', serviceAccount: '' },
       importConfig: {},
-      log: logFunctions
+      log: logFunctions,
+      update: { metadata: true, schema: true }
     }
 
     const resource = await getResource(context)
@@ -72,7 +73,8 @@ describe('test the getResource function for GCS', () => {
       tmpDir,
       catalogConfig: { bucketName: 'test-bucket', serviceAccount: '{"smt":"some-access-account"}' },
       importConfig: {},
-      log: logFunctions
+      log: logFunctions,
+      update: { metadata: true, schema: true }
     }
 
     await expect(getResource(context)).rejects.toThrow(/Erreur dans le téléchargement du fichier/)

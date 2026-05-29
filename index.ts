@@ -12,9 +12,9 @@ const plugin: CatalogPlugin<GCloudStorageConfig, GCloudStorageCapabilities> = {
     return prepare(context)
   },
 
-  async listResources (context) {
-    const { listResources } = await import('./lib/imports.ts')
-    return listResources(context)
+  async list (context) {
+    const { list } = await import('./lib/imports.ts')
+    return list(context)
   },
 
   async getResource (context) {
@@ -23,8 +23,7 @@ const plugin: CatalogPlugin<GCloudStorageConfig, GCloudStorageCapabilities> = {
   },
 
   metadata: {
-    title: 'Catalog Google Cloud Storage',
-    description: 'Google Cloud Storage plugin for Data Fair Catalog',
+    title: 'Google Cloud Storage',
     capabilities
   },
 
