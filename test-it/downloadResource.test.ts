@@ -77,6 +77,6 @@ describe('test the getResource function for GCS', () => {
       update: { metadata: true, schema: true }
     }
 
-    await expect(getResource(context)).rejects.toThrow(/Erreur dans le téléchargement du fichier/)
+    await expect(getResource(context)).rejects.toThrow(/Error while downloading file/)
   })
 })

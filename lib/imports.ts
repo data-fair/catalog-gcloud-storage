@@ -76,7 +76,7 @@ export const list = async ({ catalogConfig, secrets, params }: ListContext<GClou
     }
   } catch (error) {
     console.error('Error listing resources:', error)
-    throw new Error('Erreur dans le listage des fichiers / Authentification GCS possiblement incorrecte')
+    throw new Error('Error listing files / GCS authentication possibly incorrect')
   }
 }
 
@@ -95,7 +95,7 @@ export const getResource = async ({ catalogConfig, secrets, resourceId, tmpDir, 
     const storage = new Storage({ credentials: JSON.parse(secrets.serviceAccount) })
 
     const fileName = resourceId.substring(resourceId.lastIndexOf('/') + 1)
-    await log.step('Téléchargement du fichier : ' + fileName)
+    await log.step('Downloading file: ' + fileName)
 
     const filePath = path.join(tmpDir, fileName)
 
@@ -103,7 +103,7 @@ export const getResource = async ({ catalogConfig, secrets, resourceId, tmpDir, 
     const [metadata] = await storage.bucket(catalogConfig.bucketName).file(resourceId).getMetadata()
 
     const sizeNum = typeof metadata.size === 'string' ? globalThis.Number(metadata.size) : (typeof metadata.size === 'number' ? metadata.size : NaN)
-    await log.task(`download ${resourceId}`, 'Progression', isNaN(sizeNum) ? NaN : sizeNum)
+    await log.task(`download ${resourceId}`, 'Downloading', isNaN(sizeNum) ? NaN : sizeNum)
     let progress = 0
     return new Promise<Resource>((resolve, reject) => {
       storage
@@ -131,6 +131,6 @@ export const getResource = async ({ catalogConfig, secrets, resourceId, tmpDir, 
   } catch (error) {
     console.error('Error getting resource:', error)
     log.error(`Error during file download: ${error instanceof Error ? error.message : error}`)
-    throw new Error('Erreur dans le téléchargement du fichier / Authentification GCS possiblement incorrecte')
+    throw new Error('Error while downloading file / GCS authentication possibly incorrect')
   }
 }

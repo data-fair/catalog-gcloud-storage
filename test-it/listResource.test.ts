@@ -98,6 +98,6 @@ describe('test the list function for GCS', () => {
 
     await expect(async () => {
       await list({ secrets: { serviceAccount: JSON.stringify({ smt: 'invalid' }) }, params: {}, catalogConfig: {} })
-    }).rejects.toThrow(/Erreur dans le listage des fichiers/i)
+    }).rejects.toThrow(/Error listing files/i)
   })
 })
