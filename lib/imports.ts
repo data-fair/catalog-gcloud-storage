@@ -4,6 +4,7 @@ import type { GCloudStorageCapabilities } from './capabilities.ts'
 import { type GetFilesOptions, Storage } from '@google-cloud/storage'
 import path from 'path'
 import fs from 'fs'
+import { parseServiceAccount } from './service-account.ts'
 
 type ResourceList = Awaited<ReturnType<CatalogPlugin['list']>>['results']
 
@@ -19,7 +20,7 @@ export const list = async ({ catalogConfig, secrets, params }: ListContext<GClou
     throw new Error('Service Account is required to access Google Cloud Storage')
   }
   try {
-    const storage = new Storage({ credentials: JSON.parse(secrets.serviceAccount) })
+    const storage = new Storage({ credentials: parseServiceAccount(secrets.serviceAccount) })
 
     if (!params.currentFolderId) {
       params.currentFolderId = ''
@@ -92,7 +93,7 @@ export const getResource = async ({ catalogConfig, secrets, resourceId, tmpDir, 
     throw new Error('Service Account is required to access Google Cloud Storage')
   }
   try {
-    const storage = new Storage({ credentials: JSON.parse(secrets.serviceAccount) })
+    const storage = new Storage({ credentials: parseServiceAccount(secrets.serviceAccount) })
 
     const fileName = resourceId.substring(resourceId.lastIndexOf('/') + 1)
     await log.step('Downloading file: ' + fileName)

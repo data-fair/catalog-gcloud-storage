@@ -1,6 +1,7 @@
 import type { PrepareContext } from '@data-fair/types-catalogs'
 import type { GCloudStorageCapabilities } from './capabilities.ts'
 import type { GCloudStorageConfig } from '#types'
+import { parseServiceAccount } from './service-account.ts'
 
 /**
  * Prepares the Google Cloud Storage catalog configuration by handling service account secrets,
@@ -30,7 +31,7 @@ export default async ({ catalogConfig, capabilities, secrets }: PrepareContext<G
   if (secrets?.serviceAccount && catalogConfig.bucketName) {
     try {
       const { Storage } = await import('@google-cloud/storage')
-      const storage = new Storage({ credentials: JSON.parse(secrets.serviceAccount) })
+      const storage = new Storage({ credentials: parseServiceAccount(secrets.serviceAccount) })
       await storage.bucket(catalogConfig.bucketName).getFiles({ maxResults: 1 })
     } catch (error) {
       console.error('Error accessing Google Cloud Storage')

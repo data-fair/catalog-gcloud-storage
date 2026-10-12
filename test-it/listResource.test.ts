@@ -8,7 +8,7 @@ vi.mock('@google-cloud/storage')
 
 const catalogPlugin: CatalogPlugin = plugin as CatalogPlugin
 const list = catalogPlugin.list
-const secrets = { serviceAccount: JSON.stringify({ smt: 'fake-service-account-json' }) }
+const secrets = { serviceAccount: JSON.stringify({ type: 'service_account', smt: 'fake-service-account-json' }) }
 const catalogConfig = { bucketName: 'test-bucket' }
 
 describe('test the list function for GCS', () => {

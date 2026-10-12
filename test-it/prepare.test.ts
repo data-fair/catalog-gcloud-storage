@@ -76,6 +76,17 @@ describe('prepare', () => {
     expect(result.secrets?.serviceAccount).toBe(validServiceAccount)
   })
 
+  it('refuses credential configurations other than service accounts', async () => {
+    context.catalogConfig.serviceAccount = JSON.stringify({
+      type: 'external_account',
+      audience: 'test',
+      subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
+      token_url: 'https://attacker.example.com/token',
+      credential_source: { file: '/etc/passwd' }
+    })
+    await expect(prepare(context)).rejects.toThrow('Invalid bucketName or service account credentials for Google Cloud Storage')
+  })
+
   it('throws if serviceAccount is invalid JSON', async () => {
     context.catalogConfig.serviceAccount = 'not-a-json'
     await expect(prepare(context)).rejects.toThrow('Invalid bucketName or service account credentials for Google Cloud Storage')
